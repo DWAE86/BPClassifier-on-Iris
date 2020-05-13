@@ -14,56 +14,56 @@ struct Matrix
 class BPClassifier
 {
 private:
-	const int LAYER = 3;  // 3 layers
-	const int NUM = 10;   // the limit of neurons in each layer
+	const int LAYER = 3;     // 3 layers
+	const int NUM = 10;      // the limit of neurons in each layer
 	
-	int iters;            // max training iteration
+	int iters;               // max training iteration
+	double eta_w;            // learning rate for weight
+	double eta_b;            // learning rate for bias
 	
-	int in_num;           // neurons number in input layer
-	int hd_num;           // neurons number in hidden layer
-	int ou_num;           // neurons number in output layer
+	int in_num;              // neurons number in input layer
+	int hd_num;              // neurons number in hidden layer
+	int ou_num;              // neurons number in output layer
 	
-	double ***w;          // weight between neurons
-	double **b;           // bias for neurons
-	double **s;           // output for neurons
-	double **delta;       // delta for neurons
+	double t0,t1;
+	
+	double ***w;             // weight between neurons
+	double **b;              // bias for neurons
+	double **s;              // output for neurons
+	double **delta;          // delta for neurons
 	
 	void get_num(const Matrix&, const Matrix&);              // get each layer's neurons number
 	void generate_array(double***, int, int);                // generate 2-d array
 	void generate_array(double****, int, int, int);          // generate 3-d array
-	void initialize_network();                               // give w/b random starting point
+	void random_start();                                     // give w/b random starting point
+	void initialize_network(int);                            // network initialization
 	void forward_propagation();                              // calculate s
 	void calculate_delta(const vector<double>&);             // calculate delta
 	void improve_network(int);                               // update w/b
 	void backward_propagation(const vector<double>&, int);   // bp
-	void record_network();                                   // record num/w/b to txt
-	void read_network();                                     // read num/w/b from txt
+	void record_network(string);                             // record num/w/b to txt
+	void read_network(string);  
+	void free_array();                                       // read num/w/b from txt
 	
 	int forecast(const vector<double>&);                     // forecast the kind of input
 	
 	double random_01();                                      // return random float in [0,1]
 	double sigmoid(double);                                  // digmoid function
-	double eta(int t);                                       // calculate learning rate
-	double calculate_accuracy(const Matrix&, const Matrix&); // calculate accuracy
+	
+	// calculate accuracy
+	double calculate_accuracy(const Matrix&, const Matrix&, int, int); 
 	
 public:
-	BPClassifier(int iters = 100);
+	BPClassifier(int iters = 1000, double eta_w = 1e-1, double eta_b = 1e-1);
 	~BPClassifier();
 	void fit(const Matrix&, const Matrix&);
 	vector<int> predict(const Matrix&);
 };
 
-BPClassifier::BPClassifier(int iters)
-	: iters(iters)
-{
-	generate_array(&w, LAYER-1, NUM, NUM);
-	generate_array(&b, LAYER, NUM);
-}
+BPClassifier::BPClassifier(int iters, double eta_w, double eta_b)
+	: iters(iters), eta_w(eta_w), eta_b(eta_b) {}
 
-BPClassifier::~BPClassifier()
-{
-	delete w, b;
-}
+BPClassifier::~BPClassifier() {}
 
 void BPClassifier::get_num(const Matrix &X, const Matrix &Y)
 {
@@ -97,11 +97,8 @@ void BPClassifier::generate_array(double ****a, int n0, int n1, int n2)
 	return;
 }
 
-void BPClassifier::initialize_network()
+void BPClassifier::random_start()
 {
-	generate_array(&s, LAYER, NUM);
-	generate_array(&delta, LAYER, NUM);
-	
 	srand((unsigned int) time(0));
 	for(int i = 1; i < LAYER; i++)                         // input layer b = 0
 	for(int j = 0; j < NUM; j++) b[i][j] = random_01();
@@ -109,6 +106,15 @@ void BPClassifier::initialize_network()
 	for(int i = 0; i < LAYER-1; i++)
 	for(int j = 0; j < NUM; j++)
 	for(int k = 0; k < NUM; k++) w[i][j][k] = random_01();
+}
+
+void BPClassifier::initialize_network(int flag)
+{
+	generate_array(&w, LAYER, NUM, NUM);
+	generate_array(&b, LAYER, NUM);
+	generate_array(&s, LAYER, NUM);
+	if(!flag) return;
+	generate_array(&delta, LAYER, NUM);
 	return;
 }
 
@@ -151,18 +157,18 @@ void BPClassifier::improve_network(int t)
 	{
 		for(int i = 0; i < hd_num; i++)   // update w between hd/ou layer
 		{
-			w[1][i][j] -= eta(t) * delta[2][j] * s[1][i];
+			w[1][i][j] -= eta_w * delta[2][j] * s[1][i];
 		}
-		b[2][j] -= eta(t) * delta[2][j];   // update b for output layer
+		b[2][j] -= eta_b * delta[2][j];   // update b for output layer
 	}
 	
 	for(int j = 0; j < hd_num; j++)
 	{
 		for(int i = 0; i < in_num; i++)   // update w between in/hd layer
 		{
-			w[0][i][j] -= eta(t) * delta[1][j] * s[0][i];
+			w[0][i][j] -= eta_w * delta[1][j] * s[0][i];
 		}
-		b[1][j] -= eta(t) * delta[1][j];   // update b for hidden layer
+		b[1][j] -= eta_b * delta[1][j];   // update b for hidden layer
 	}
 	return;
 }
@@ -174,11 +180,11 @@ void BPClassifier::backward_propagation(const vector<double> &y, int t)
 	return;
 }
 
-void BPClassifier::record_network()
+void BPClassifier::record_network(string name)
 {
 	ofstream myout;
 	myout.clear();
-	myout.open("network.txt", ios::out);
+	myout.open(name+"_network.txt", ios::out);
 
 	myout << "input-layer-neurons-number: " << in_num << endl;
 	myout << "hidden-layer-neurons-number: " << hd_num << endl;
@@ -213,42 +219,39 @@ void BPClassifier::record_network()
 	return;
 }
 
-void BPClassifier::read_network()
+void BPClassifier::read_network(string name)
 {
 	ifstream myin;
 	myin.clear();
-	myin.open("network.txt", ios::in);
+	myin.open(name+"_network.txt", ios::in);
 	
 	string xyz;
 	myin >> xyz >> xyz >> xyz >> xyz >> xyz >> xyz;
 	
 	myin >> xyz;
 	for(int i = 0; i < in_num; i++)
-	for(int j = 0; j < hd_num; j++)
-	{
-		myin >> w[0][i][j];
-	} 
+	for(int j = 0; j < hd_num; j++) myin >> w[0][i][j];
 
 	myin >> xyz;
 	for(int i = 0; i < hd_num; i++)
-	for(int j = 0; j < ou_num; j++)
-	{
-		myin >> w[1][i][j];
-	} 
+	for(int j = 0; j < ou_num; j++) myin >> w[1][i][j];
 	
 	myin >> xyz;
-	for(int j = 0; j < hd_num; j++)
-	{
-		myin >> b[1][j];
-	} 
+	for(int j = 0; j < hd_num; j++) myin >> b[1][j];
 
 	myin >> xyz;
-	for(int j = 0; j < ou_num; j++)
-	{
-		myin >> b[2][j];
-	}
+	for(int j = 0; j < ou_num; j++) myin >> b[2][j];
 	
 	myin.close();
+	return;
+}
+
+void BPClassifier::free_array()
+{
+	delete w;
+	delete b;
+	delete s;
+	delete delta;
 	return;
 }
 
@@ -275,70 +278,75 @@ double BPClassifier::sigmoid(double x)
 	return 1 / ( 1 + exp(-x) );
 }
 
-double BPClassifier::eta(int t)           // eta by Simulated Annealing
-{
-	return 5000.0 / (t + 50000);
-}
-
-double BPClassifier::calculate_accuracy(const Matrix &X, const Matrix &Y)
+double BPClassifier::calculate_accuracy(const Matrix &X, const Matrix &Y, int l, int r)
 {
 	int correct = 0;                      // number of the correct forecast
-	for(int i = 0; i < X.r; i++) 
+	for(int i = l; i < r; i++) 
 	{
 		int p = forecast(X.v[i]);
 		correct += Y.v[i][p] > 0.99;
 	}
-	return 1.0 * correct / X.r;           // return accuracy
+	return 1.0 * correct / (r-l);         // return accuracy
 }
 
 void BPClassifier::fit(const Matrix &X, const Matrix &Y)
 {
 	cout << string(70, '*')+"\n";
-	cout << "Start to train the BP Neutual Network Classifier!\n";
+	cout << "Start to train the BP Neutual Network Classifier. \n";
 	get_num(X, Y);
-	initialize_network();
-
-	int num = X.r;
-	double best = 0; 
+	initialize_network(1);
+	
+	int num = X.r-X.r/8;
 	vector<int> id; 
 	for(int i = 0; i < num; i++) id.push_back(i);
-
-	for(int iter = 0; iter < iters; iter++)
+	
+	double all_best = 0;
+	for(int model = 0; model < 100; model++)
 	{
-		random_shuffle(id.begin(), id.end());    // instance in random order
-		for(int p : id)                          // trained by every instance
-		{
-			for(int i = 0; i < in_num; i++) s[0][i] = X.v[p][i];
-			forward_propagation();
-			backward_propagation(Y.v[p], p+iter*num);
+		double now_best = 0;
+		random_start();
+		for(int iter = 0; iter < iters; iter++)
+		{ 
+			random_shuffle(id.begin(), id.end());        // instance in random order
+			for(int p : id)                              // trained by every instance
+			{
+				for(int i = 0; i < in_num; i++) s[0][i] = X.v[p][i];
+				forward_propagation();
+				backward_propagation(Y.v[p], p+iter*num);
+			}
+			double tmp = calculate_accuracy(X, Y, 0, num);
+			if(now_best < tmp)
+			{
+				record_network("now_best");              // store the best network
+				now_best = tmp;
+			}
+			if(now_best-tmp >= 3e-2) break;              // early stopping
 		}
-		double now = calculate_accuracy(X, Y);
-		if(best < now)
+		if(calculate_accuracy(X, Y, num, X.r) > all_best)
 		{
-			record_network();                    // store the best network
-			best = now;
+			record_network("all_best");
+			all_best = now_best;
 		}
-		cout << "Finish training iteraion " << iter+1;
-		cout << ". Accuracy on train set: " << now << endl;
-		if(best-now >= 2e-2) break;              // early stopping
+		cout << "Finish training model " << model+1;
+		cout << ". Accuracy on training set: " << now_best << endl;
 	}
 	
-	read_network();                              // read the best network
-	cout << string(70, '*')+"\n";
-	cout << "End training!\n";
-	cout << "Final Accuracy on train set: " << calculate_accuracy(X, Y);
+	read_network("all_best");                            // read the best network
+	cout << "End training Classifier!\n";
+	cout << "Final Accuracy on train set: " << calculate_accuracy(X, Y, 0, X.r);
 	cout << "\n"+string(70, '*')+"\n";
 	
-	delete s, delta; 
+	free_array();
 	return;
 }
 
 vector<int> BPClassifier::predict(const Matrix &X)
 {
-	generate_array(&s, LAYER, NUM);
+	initialize_network(0);
+	read_network("all_best"); 
 	vector<int> res;
 	for(int i = 0; i < X.r; i++) res.push_back(forecast(X.v[i]));
-	delete s;
+	free_array();
 	return res;
 }
 
@@ -349,7 +357,7 @@ kind 1: 0<=x<0.5 , 0<=y<=0.5
 kind 2: 0.5<=x<=1, 0<=y<=0.5
 */
 
-/*
+///*
 int main()
 {
 	srand((unsigned int) time(0));
@@ -364,8 +372,10 @@ int main()
 		else if(X_train.v[i][0] < 0.5) Y_train.v[i][1] = 1;
 		else Y_train.v[i][2] = 1;
 	}
+	
 	BPClassifier bp_clf;
 	bp_clf.fit(X_train, Y_train);
+	
 	X_test.v[0][0] = 0.45, X_test.v[0][1] = 0.75;
 	cout << bp_clf.predict(X_test)[0] << endl;
 	X_test.v[0][0] = 0.25, X_test.v[0][1] = 0.25;
@@ -374,4 +384,4 @@ int main()
 	cout << bp_clf.predict(X_test)[0] << endl;
 	return 0;
 }
-*/
+//*/
