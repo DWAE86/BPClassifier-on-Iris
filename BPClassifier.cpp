@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include"optimize.hpp"
 using namespace std;
 
 struct Matrix
@@ -14,43 +15,49 @@ struct Matrix
 class BPClassifier
 {
 private:
-	const int LAYER = 3;
-	const int NUM = 10; //neurons
-	
-    int iters;
-	double eta_w;
-	double eta_b;
-	
-	int in_num;
-	int hd_num;
-	int ou_num;
-	
+	const int LAYER = 3;//num of layers
+	const int NUM = 10;
+
+    int iters;//iterations
+	double eta_w;//learning rate of w
+	double eta_b;//learning rate  of b
+
+	int in_num;//input neuron
+	int hd_num;//hidden neuron
+	int ou_num;//output neuron
+
+	//parameters of layers
 	double ***w;
 	double **b;
+
+    //gradient decent
     double **s;
     double **delta;
-	
+
     void get_num(const Matrix&, const Matrix&);
     void generate_array(double***, int, int);
     void generate_array(double****, int, int, int);
     void initialize_network();
 	void forward_propagation();
     void calculate_delta(const vector<double>&);
+    void improve_network_L2();
     void improve_network();
-    void backward_propagation(const vector<double>&);
+    void backward_propagation(const vector<double>&,int iter);
     void record_network();
-    
+
     int forecast(const vector<double>&);
-    
+
     double random_01();
 	double sigmoid(double);
     double calculate_accuracy(const Matrix&, const Matrix&);
-    
+
 public:
     BPClassifier(int iters = 20, double eta_w = 1e-1, double eta_b = 1e-1);
 	~BPClassifier();
     void fit(const Matrix&, const Matrix&);
 	vector<int> predict(const Matrix&);
+
+	Optimize optimize;
 };
 
 BPClassifier::BPClassifier(int iters, double eta_w, double eta_b)
@@ -78,7 +85,7 @@ void BPClassifier::get_num(const Matrix &X, const Matrix &Y)
 void BPClassifier::generate_array(double ***a, int n0, int n1)
 {
     *a = new double *[n0];
-    for(int i = 0; i < n0; i++) 
+    for(int i = 0; i < n0; i++)
     {
         (*a)[i] = new double [n1];
     }
@@ -91,7 +98,7 @@ void BPClassifier::generate_array(double ****a, int n0, int n1, int n2)
     for(int i = 0; i < n0; i++)
     {
         (*a)[i] = new double *[n1];
-        for(int j = 0; j < n1; j++) 
+        for(int j = 0; j < n1; j++)
         {
             (*a)[i][j] = new double [n2];
         }
@@ -102,7 +109,7 @@ void BPClassifier::generate_array(double ****a, int n0, int n1, int n2)
 void BPClassifier::initialize_network()
 {
     srand((unsigned int) time(0));
-    for(int i = 0; i < LAYER; i++) 
+    for(int i = 0; i < LAYER; i++)
     for(int j = 0; j < NUM; j++) b[i][j] = random_01();
 
     for(int i = 0; i < LAYER-1; i++)
@@ -149,14 +156,13 @@ void BPClassifier::improve_network()
 {
     for(int j = 0; j < ou_num; j++)
     {
-        for(int i = 0; i < hd_num; i++) 
+        for(int i = 0; i < hd_num; i++)
         {
             w[1][i][j] -= eta_w * delta[2][j] * s[1][i];
-//            printf(">>>%.5f %.5f %.5f %.5f %.5f\n", eta_w, delta[2][j], s[1][i], w[1][i][j], eta_w * delta[2][j] * s[1][i]);
         }
         b[2][j] -= eta_b * delta[2][j];
     }
-    
+
     for(int j = 0; j < hd_num; j++)
     {
         for(int i = 0; i < in_num; i++)
@@ -168,14 +174,38 @@ void BPClassifier::improve_network()
     return;
 }
 
-void BPClassifier::backward_propagation(const vector<double> &y)
+void BPClassifier::improve_network_L2()
+{
+    for(int j = 0; j < ou_num; j++)
+    {
+        for(int i = 0; i < hd_num; i++)
+        {
+            //here 1000 should be replaced by the number of train examples
+              w[1][i][j] *= (1-optimize.weight_decay*eta_w/1000);
+        }
+    }
+
+    for(int j = 0; j < hd_num; j++)
+    {
+        for(int i = 0; i < in_num; i++)
+        {
+            w[0][i][j] *= (1-optimize.weight_decay*eta_w/1000);
+        }
+    }
+    return;
+}
+
+void BPClassifier::backward_propagation(const vector<double> &y,int iter)
 {
 //	printf("???%.5f %.5f %.5f\n", s[2][0], s[2][1], s[2][2]);
     calculate_delta(y);
 //    cout << "---\n";
 //    for(int i = 0; i < ou_num; i++) printf("%.2f ", delta[2][i]); putchar(10);
 //    for(int i = 0; i < hd_num; i++) printf("%.2f ", delta[1][i]); putchar(10);
+    if(optimize.isL2) improve_network_L2();
     improve_network();
+    optimize.learning_rate_decay(eta_b,iter);
+    optimize.learning_rate_decay(eta_w,iter);
     return;
 }
 
@@ -192,14 +222,14 @@ void BPClassifier::record_network()
     for(int j = 0; j < hd_num; j++)
 	{
     	cout << fixed << setprecision(4) << w[0][i][j] << " ";
-	} 
+	}
 
     cout << "\nweight between input layer and hidden layer:\n";
     for(int i = 0; i < hd_num; i++, putchar(10))
     for(int j = 0; j < ou_num; j++)
 	{
 		cout << fixed << setprecision(4) << w[1][i][j] << " ";
-	} 
+	}
 
 //    fclose(stdout);
     return;
@@ -211,7 +241,7 @@ int BPClassifier::forecast(const vector<double> &x)
     forward_propagation();
     double tmp = 0;
     int res = -1;
-    for(int i = 0; i < ou_num; i++) 
+    for(int i = 0; i < ou_num; i++)
     {
         if(s[2][i] > tmp) tmp = s[2][res = i];
     }
@@ -231,7 +261,7 @@ double BPClassifier::sigmoid(double x)
 double BPClassifier::calculate_accuracy(const Matrix &X, const Matrix &Y)
 {
     int correct = 0;
-    for(int i = 0; i < X.r; i++) 
+    for(int i = 0; i < X.r; i++)
     {
         int p = forecast(X.v[i]);
         correct += Y.v[i][p] == 1;
@@ -246,14 +276,14 @@ void BPClassifier::fit(const Matrix &X, const Matrix &Y)
     initialize_network();
 
     int num = X.r;
-    double best = 0; 
+    double best = 0;
     for(int iter = 0; iter < iters; iter++)
     {
         for(int p = 0; p < num; p++)
         {
             for(int i = 0; i < in_num; i++) s[0][i] = X.v[p][i];
             forward_propagation();
-            backward_propagation(Y.v[p]);
+            backward_propagation(Y.v[p],iter);
         }
         double now = calculate_accuracy(X, Y);
         best = max(best, now);
@@ -290,7 +320,11 @@ int main()
         else Y_train.v[i][2] = 1;
 //        printf(">>%f %f %f %f %f\n", X_train.v[i][0], X_train.v[i][1], Y_train.v[i][0], Y_train.v[i][1], Y_train.v[i][2]);
     }
-    BPClassifier bp_clf;
+    BPClassifier bp_clf(20,1,1);
+
+    bp_clf.optimize.learning_rate_decay(0.0001);
+    bp_clf.optimize.regularization("L2",0.00001);
+
     bp_clf.fit(X_train, Y_train);
     X_test.v[0][0] = 0.25, X_test.v[0][1] = 0.25;
     cout << bp_clf.predict(X_test)[0] << endl;
