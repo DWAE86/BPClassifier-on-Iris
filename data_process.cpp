@@ -10,7 +10,6 @@
 
 template <class T>
 void DataFrame::shuffle(vector<T> &a) {
-    srand(unsigned(time(0)));
     for (int i = 0; i < a.size(); i++) {
         int id = rand() % (a.size() - i) + i;
         swap(a[i], a[id]);
