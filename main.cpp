@@ -34,6 +34,7 @@ void show(DataFrame &dt, BPClassifier &bp) {
 
 int main()
 {
+    srand(unsigned(time(0)));
     cout << "Hello Test!!!\n";
     data.read_file("iris.data");
     data.init();
