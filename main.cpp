@@ -39,8 +39,6 @@ int main()
     data.read_file("iris.data");
     data.init();
     bp_clf.fit(data.X_train, data.Y_train);
-    
-    vector<int> ans = bp_clf.predict(data.X_test);
 
     show(data, bp_clf);
     return 0;
