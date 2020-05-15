@@ -8,18 +8,44 @@
 
 #include <bits/stdc++.h>
 #include "data_process.hpp"
+#include "classifier.hpp"
+
 using namespace std;
 
 DataFrame data;
+BPClassifier bp_clf(10,2,2);
 
-int main(int argc, const char * argv[]) {
+void show(DataFrame &dt, BPClassifier &bp) {
+    vector<int> ans = bp.predict(dt.X_test);
+    vector<string> res = dt.tostring(ans);
+    int num = 0;
+    cout << "The result on the test dataset:\n";
+    for (int i = 0; i < ans.size(); i++) {
+
+        cout << "test " << setw(2) << right << i + 1 << ": ";
+        cout << "result: " << setw(17) << left << res[i] << "  ";
+        cout << "answer: " << setw(17) << left << dt.ans(i) << "\n";
+        if (res[i] == dt.ans(i)) {
+            num++;
+        }
+    }
+    cout << num << " correct of " << ans.size() << " tests\n";
+    cout << "accuracy: " << 1.0 * num / ans.size() << endl;
+}
+
+int main()
+{
+    srand(unsigned(time(0)));
+    cout << "Hello Test!!!\n";
     data.read_file("iris.data");
     data.init();
-    for (int i = 0; i < data.X_train.r; i++) {
-        for (int j = 0; j < data.X_train.c; j++) {
-            printf("%7.2lf", data.X_train.v[i][j]);
-        }
-        putchar(10);
-    }
+
+    bp_clf.optimize.learning_rate_decay(0.00001);
+    bp_clf.optimize.regularization("L2",0.00001);
+
+
+    bp_clf.fit(data.X_train, data.Y_train);
+
+    show(data, bp_clf);
     return 0;
 }
