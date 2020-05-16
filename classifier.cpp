@@ -413,7 +413,7 @@ void BPClassifier::fit(const Matrix &X, const Matrix &Y)
                 }
             }
 
-           if(now_best-tmp >= 3e-2) break;              // early stopping
+           //if(now_best-tmp >= 3e-2) break;              // early stopping
         }
 
         cout << "Finish training model " << model+1;
