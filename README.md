@@ -8,4 +8,4 @@ class:
 + Matrix 实现矩阵类，作为数据载体。
 + DataFrame 实现数据的各种处理。
 + BPClassifier 基于神经网络的分类器，支持`fit`和`predict`。
-+ optimize 部分优化，例如学习率递减与L2正则化
++ optimize 实现部分优化算法，支持学习率递减，L2正则化，Adam优化器
