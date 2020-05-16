@@ -10,7 +10,7 @@
 #include "data_process.hpp"
 
 BPClassifier::BPClassifier(int iters, double eta_w, double eta_b)
-    : iters(iters), eta_w(eta_w), eta_b(eta_b){}
+    : iters(iters), eta_w(eta_w), eta_b(eta_b) {}
 
 BPClassifier::~BPClassifier() {}
 
@@ -50,11 +50,11 @@ void BPClassifier::random_start()
 {
     srand((unsigned int) time(0));
     for(int i = 1; i < LAYER; i++)                         // input layer b = 0
-    for(int j = 0; j < NUM; j++) b[i][j] = random_01();
+        for(int j = 0; j < NUM; j++) b[i][j] = random_01();
 
     for(int i = 0; i < LAYER-1; i++)
-    for(int j = 0; j < NUM; j++)
-    for(int k = 0; k < NUM; k++) w[i][j][k] = random_01();
+        for(int j = 0; j < NUM; j++)
+            for(int k = 0; k < NUM; k++) w[i][j][k] = random_01();
 }
 
 void BPClassifier::initialize_network(int flag)
@@ -85,14 +85,13 @@ void BPClassifier::forward_propagation()
     return;
 }
 
-double BPClassifier::calculate_loss(const vector<double> &y)
+void BPClassifier::calculate_loss(double &loss, const vector<double> &y)
 {
-    double loss = 0.0;
-    for(int i=0;i<ou_num;i++)
+    for(int i=0; i<ou_num; i++)
     {
         loss += 100*1/2*pow((s[2][i] - y[i]),2);
     }
-    return loss;
+    return ;
 }
 
 void BPClassifier::calculate_delta(const vector<double> &y)
@@ -132,6 +131,86 @@ void BPClassifier::improve_network(int t)
     return;
 }
 
+void BPClassifier::initialize_adam(double ***vdw,double **vdb,double ***sdw,double **sdb)
+{
+    for(int i= 0; i<LAYER; i++)
+    {
+        for(int j = 0; j<NUM; j++)
+        {
+            for(int k = 0; k<NUM; k++)
+            {
+                vdw[i][k][j] = 0;
+                sdw[i][k][j] = 0;
+            }
+            vdb[i][j] = 0;
+            sdb[i][j] = 0;
+        }
+    }
+    return ;
+}
+
+void BPClassifier::improve_network_adam(double ***vdw,double **vdb,double ***sdw,double **sdb)
+{
+    double db = 0,dw = 0;
+    for(int j = 0; j < ou_num; j++)
+    {
+        for(int i = 0; i < hd_num; i++)
+        {
+            dw = delta[2][j] * s[1][i];
+            vdw[1][i][j] = 0.9*vdw[1][i][j] + 0.1*dw;
+            sdw[1][i][j] = 0.999*sdw[1][i][j] + 0.001*dw*dw;
+
+        }
+        db = delta[2][j];
+        vdb[2][j] = 0.9*vdb[2][j] + 0.1*db;
+        sdb[2][j] = 0.999*sdb[2][j] + 0.001*db*db;
+
+    }
+
+    for(int j = 0; j < hd_num; j++)
+    {
+        for(int i = 0; i < in_num; i++)
+        {
+            dw = delta[1][j] * s[0][i];
+            vdw[0][i][j] = 0.9*vdw[0][i][j] + 0.1*dw;
+            sdw[0][i][j] = 0.999*sdw[0][i][j] + 0.001*dw*dw;
+        }
+        db = delta[1][j];
+        vdb[1][j] = 0.9*vdb[1][j] + 0.1*db;
+        sdb[1][j] = 0.999*sdb[1][j] + 0.001*db*db;
+    }
+    return;
+}
+void BPClassifier::improve_network_with_adam(double ***vdw,double **vdb,double ***sdw,double **sdb,int t)
+{
+    for(int j = 0; j < ou_num; j++)
+    {
+        for(int i = 0; i < hd_num; i++)
+        {
+            vdw[1][i][j] /= (1-pow(0.9,t));
+            sdw[1][i][j] /= (1-pow(0.999,t));
+            w[1][i][j] -= eta_w * vdw[1][i][j] / (sqrt(sdw[1][i][j]) + 1e-8);
+        }
+        vdb[2][j] /= (1-pow(0.9,t));
+        sdb[2][j] /= (1-pow(0.999,t));
+        b[2][j] -= eta_b * vdb[2][j] / (sqrt(sdb[2][j]) + 1e-8);
+    }
+
+    for(int j = 0; j < hd_num; j++)
+    {
+        for(int i = 0; i < in_num; i++)
+        {
+            vdw[0][i][j] /= (1-pow(0.9,t));
+            sdw[0][i][j] /= (1-pow(0.999,t));
+            w[0][i][j] -= eta_w * vdw[0][i][j] / (sqrt(sdw[0][i][j]) + 1e-8);
+        }
+        vdb[1][j] /= (1-pow(0.9,t));
+        sdb[1][j] /= (1-pow(0.999,t));
+        b[1][j] -= eta_b * vdb[1][j] / (sqrt(sdb[1][j]) + 1e-8);
+    }
+    return;
+}
+
 void BPClassifier::improve_network_L2()
 {
     for(int j = 0; j < ou_num; j++)
@@ -139,7 +218,7 @@ void BPClassifier::improve_network_L2()
         for(int i = 0; i < hd_num; i++)
         {
             //here 150 should be replaced by the number of train examples
-              w[1][i][j] *= (1-optimize.weight_decay*eta_w/150);
+            w[1][i][j] *= (1-optimize.weight_decay*eta_w/150);
         }
     }
 
@@ -153,14 +232,12 @@ void BPClassifier::improve_network_L2()
     return;
 }
 
-void BPClassifier::backward_propagation(const vector<double> &y, int t, int iter)
+void BPClassifier::backward_propagation(const vector<double> &y, int t, int iter,double &loss)
 {
     calculate_delta(y);                   // y is grounding result
-    cout << "loss: " << calculate_loss(y) << endl;
+    calculate_loss(loss, y);
     if(optimize.isL2) improve_network_L2();
-    improve_network(t);
-    optimize.learning_rate_decay(eta_b,iter);
-    optimize.learning_rate_decay(eta_w,iter);
+    if(!optimize.isadam) improve_network(t);
     return;
 }
 
@@ -176,17 +253,17 @@ void BPClassifier::record_network(string name)
 
     myout << "weight-between-input-layer-and-hidden-layer:\n";
     for(int i = 0; i < in_num; i++)
-    for(int j = 0; j < hd_num; j++)
-    {
-        myout << fixed << setprecision(20) << w[0][i][j] << (j == hd_num-1 ? "\n":"\t");
-    }
+        for(int j = 0; j < hd_num; j++)
+        {
+            myout << fixed << setprecision(20) << w[0][i][j] << (j == hd_num-1 ? "\n":"\t");
+        }
 
     myout << "weight-between-hidden-layer-and-output-layer:\n";
     for(int i = 0; i < hd_num; i++)
-    for(int j = 0; j < ou_num; j++)
-    {
-        myout << fixed << setprecision(20) << w[1][i][j] << (j == ou_num-1 ? "\n":"\t");
-    }
+        for(int j = 0; j < ou_num; j++)
+        {
+            myout << fixed << setprecision(20) << w[1][i][j] << (j == ou_num-1 ? "\n":"\t");
+        }
     myout << "bias-for-hidden-layer:\n";
     for(int j = 0; j < hd_num; j++)
     {
@@ -214,11 +291,11 @@ void BPClassifier::read_network(string name)
 
     myin >> xyz;
     for(int i = 0; i < in_num; i++)
-    for(int j = 0; j < hd_num; j++) myin >> w[0][i][j];
+        for(int j = 0; j < hd_num; j++) myin >> w[0][i][j];
 
     myin >> xyz;
     for(int i = 0; i < hd_num; i++)
-    for(int j = 0; j < ou_num; j++) myin >> w[1][i][j];
+        for(int j = 0; j < ou_num; j++) myin >> w[1][i][j];
 
     myin >> xyz;
     for(int j = 0; j < hd_num; j++) myin >> b[1][j];
@@ -282,11 +359,14 @@ void BPClassifier::fit(const Matrix &X, const Matrix &Y)
     int num = X.r-X.r/4;
     vector<int> id, id2;
 
+    double loss = 0;
+    optimize.learning_rate_record(eta_b,eta_w);
 
     double all_best = 0;
-    for(int model = 0; model < 3; model++)
+    for(int model = 0; model < 5; model++)
     {
-        id.resize(0); id2.resize(0);
+        id.resize(0);
+        id2.resize(0);
         for(int i = 0; i < X.r; i++) id.push_back(i);
         random_shuffle(id.begin(), id.end());        // instance in random order
         for (int i = num; i < X.r; i++) id2.push_back(id[i]);
@@ -294,14 +374,32 @@ void BPClassifier::fit(const Matrix &X, const Matrix &Y)
 
         double now_best = 0;
         random_start();
+        double ***vdw, **vdb, ***sdw, **sdb;
+        generate_array(&vdb,LAYER,NUM);
+        generate_array(&vdw,LAYER,NUM,NUM);
+        generate_array(&sdb,LAYER,NUM);
+        generate_array(&sdw,LAYER,NUM,NUM);
+
+
         for(int iter = 0; iter < iters; iter++)
         {
+            loss = 0;
+            if(optimize.isadam) initialize_adam(vdw,vdb,sdw,sdb);
+
             for(int p : id)                              // trained by every instance
             {
                 for(int i = 0; i < in_num; i++) s[0][i] = X.v[p][i];
                 forward_propagation();
-                backward_propagation(Y.v[p], p+iter*num,iter);
+                backward_propagation(Y.v[p], p+iter*num, iter, loss);
+
+                if(optimize.isadam) improve_network_adam(vdw,vdb,sdw,sdb);
             }
+            cout << "epoch "<< iter+1 << " ----->loss:" << loss << endl;
+
+            optimize.learning_rate_decay(eta_b,eta_w,iter+1);
+
+            if(optimize.isadam) improve_network_with_adam(vdw,vdb,sdw,sdb,iter+1);
+
             double tmp = calculate_accuracy(X, Y, id);
             if(now_best < tmp)
             {
@@ -314,7 +412,8 @@ void BPClassifier::fit(const Matrix &X, const Matrix &Y)
                     all_best = now_best;
                 }
             }
-            if(now_best-tmp >= 3e-2) break;              // early stopping
+
+           if(now_best-tmp >= 3e-2) break;              // early stopping
         }
 
         cout << "Finish training model " << model+1;

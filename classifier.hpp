@@ -43,7 +43,10 @@ private:
     void calculate_delta(const vector<double>&);             // calculate delta
     void improve_network(int);                               // update w/b
     void improve_network_L2();
-    void backward_propagation(const vector<double>&, int, int);   // bp
+    void initialize_adam(double ***vdw,double **vdb,double ***sdw,double **sdb);
+    void improve_network_adam(double ***vdw,double **vdb,double ***sdw,double **sdb);
+    void improve_network_with_adam(double ***vdw,double **vdb,double ***sdw,double **sdb, int t);
+    void backward_propagation(const vector<double>&, int, int, double&);   // bp
     void record_network(string);                             // record num/w/b to txt
     void read_network(string);
     void free_array();                                       // read num/w/b from txt
@@ -56,7 +59,7 @@ private:
     // calculate accuracy
     //double calculate_accuracy(const Matrix&, const Matrix&, int, int);
     double calculate_accuracy(const Matrix &X, const Matrix &Y, vector<int> v);
-    double calculate_loss(const vector<double> &y);
+    void calculate_loss(double&,const vector<double>&);
 
 public:
     BPClassifier(int iters = 1000, double eta_w = 1e-1, double eta_b = 1e-1);
