@@ -13,7 +13,7 @@
 using namespace std;
 
 DataFrame data;
-BPClassifier bp_clf(28,1,1);
+BPClassifier bp_clf(50,0.3,0.1); // (epoch, learning_rate_w, learning_rate_b)
 void show(DataFrame &dt, BPClassifier &bp) {
     vector<int> ans = bp.predict(dt.X_test);
     vector<string> res = dt.tostring(ans);
@@ -41,7 +41,7 @@ int main()
 
     bp_clf.optimize.learning_rate_decay(0.00001);
     bp_clf.optimize.regularization("L2",0.00001);
-    //bp_clf.optimize.optimizer_adam();
+    bp_clf.optimize.optimizer_adam();
 
     bp_clf.fit(data.X_train, data.Y_train);
 

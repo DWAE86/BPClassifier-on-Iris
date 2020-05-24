@@ -10,13 +10,12 @@ class Optimize
 {
 private:
     double decay_rate;
-    void dropout(double keep_prop = 1);
     void L2(double weight_decay);
 public:
     Optimize();
 
     bool isdropout,isL2,isadam;
-    double weight_decay,keep_prop,eta0_w,eta0_b;
+    double weight_decay,eta0_w,eta0_b;
 
     void learning_rate_decay(double decay_rate);
     void learning_rate_decay(double &eta_b,double &eta_w,int epoch_num);

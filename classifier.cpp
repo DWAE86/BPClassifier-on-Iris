@@ -406,14 +406,14 @@ void BPClassifier::fit(const Matrix &X, const Matrix &Y)
                 record_network("now_best");              // store the best network
                 now_best = tmp;
                 double tmpp = calculate_accuracy(X, Y, id2);
-                if(now_best > all_best && tmpp > 0.90)
+                if(now_best > all_best )       //tmpp > 0.90
                 {
                     record_network("all_best");
                     all_best = now_best;
                 }
             }
 
-           if(now_best-tmp >= 3e-2) break;              // early stopping
+          // if(now_best-tmp >= 3e-2) break;              // early stopping
         }
 
         cout << "Finish training model " << model+1;

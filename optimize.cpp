@@ -1,13 +1,8 @@
 
 #include"optimize.hpp"
 
-Optimize::Optimize():isdropout(false),isL2(false),isadam(false),decay_rate(0),weight_decay(0),keep_prop(1),eta0_b(0),eta0_w(0) {}
+Optimize::Optimize():isdropout(false),isL2(false),isadam(false),decay_rate(0),weight_decay(0),eta0_b(0),eta0_w(0) {}
 
-void Optimize::dropout(double keep_prop)
-{
-    this->keep_prop = keep_prop;
-    return ;
-}
 
 void Optimize::L2(double weight_decay)
 {
@@ -38,11 +33,7 @@ void Optimize::learning_rate_decay(double &eta_b,double &eta_w,int epoch_num)
 
 void Optimize::regularization(string c, int parameter)
 {
-    if(c == "dropout")
-    {
-        isdropout = true;
-        dropout(parameter);
-    }
+
     if(c == "L2")
     {
         isL2 = true;
